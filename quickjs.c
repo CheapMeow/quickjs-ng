@@ -7848,6 +7848,65 @@ void JS_SetExceptionHandler(JSRuntime *rt, JSDebugExceptionHandler handler, void
 }
 // [Debugger End]
 
+// [Debugger Begin] frame variables
+int JS_GetFrameVariables(JSContext *ctx, int frame_index,
+                         JSDebugVariable *out_vars, int max_vars)
+{
+    JSStackFrame *sf;
+    int frame_idx = 0;
+    int count = 0;
+
+    sf = ctx->rt->current_stack_frame;
+    while (sf) {
+        JSObject *p;
+        JSFunctionBytecode *b;
+
+        if (!JS_IsObject(sf->cur_func)) {
+            sf = sf->prev_frame;
+            continue;
+        }
+        p = JS_VALUE_GET_OBJ(sf->cur_func);
+        if (p->class_id != JS_CLASS_BYTECODE_FUNCTION) {
+            sf = sf->prev_frame;
+            continue;
+        }
+        b = p->u.func.function_bytecode;
+        if (!b) {
+            sf = sf->prev_frame;
+            continue;
+        }
+
+        if (frame_idx == frame_index) {
+            int i;
+
+            for (i = 0; i < b->arg_count && count < max_vars; i++) {
+                if (b->vardefs[i].var_name == JS_ATOM_NULL)
+                    continue;
+                out_vars[count].name = b->vardefs[i].var_name;
+                out_vars[count].value = sf->arg_buf[i];
+                count++;
+            }
+
+            for (i = 0; i < b->var_count && count < max_vars; i++) {
+                int vardef_idx = b->arg_count + i;
+                if (b->vardefs[vardef_idx].var_name == JS_ATOM_NULL)
+                    continue;
+                out_vars[count].name = b->vardefs[vardef_idx].var_name;
+                out_vars[count].value = sf->var_buf[i];
+                count++;
+            }
+
+            return count;
+        }
+
+        frame_idx++;
+        sf = sf->prev_frame;
+    }
+
+    return 0;
+}
+// [Debugger End]
+
 /* in order to avoid executing arbitrary code during the stack trace
    generation, we only look at simple 'name' properties containing a
    string. */

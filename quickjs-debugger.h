@@ -32,6 +32,16 @@ typedef void (*JSDebugExceptionHandler)(JSContext *ctx, void *opaque);
    The handler runs inside the VM — same constraints as the interrupt handler. */
 void JS_SetExceptionHandler(JSRuntime *rt, JSDebugExceptionHandler handler, void *opaque);
 
+typedef struct JSDebugVariable {
+    JSAtom name;
+    JSValue value;
+} JSDebugVariable;
+
+/* Get variables (arguments + locals) for the frame at frame_index (0 = innermost).
+   Must be called while the VM is suspended. Returns count of variables filled. */
+int JS_GetFrameVariables(JSContext *ctx, int frame_index,
+                         JSDebugVariable *out_vars, int max_vars);
+
 #ifdef __cplusplus
 }
 #endif
