@@ -7788,6 +7788,42 @@ int JS_GetCurrentLocation(
 
     return 0;
 }
+
+// [Debugger Begin] stack frames
+int JS_GetStackFrames(JSContext *ctx, JSDebugFrame *out_frames, int max_frames)
+{
+    JSStackFrame *sf;
+    int count = 0;
+
+    sf = ctx->rt->current_stack_frame;
+    while (sf && count < max_frames) {
+        JSObject *p;
+        JSFunctionBytecode *b;
+
+        if (!JS_IsObject(sf->cur_func)) {
+            sf = sf->prev_frame;
+            continue;
+        }
+        p = JS_VALUE_GET_OBJ(sf->cur_func);
+        if (p->class_id != JS_CLASS_BYTECODE_FUNCTION) {
+            sf = sf->prev_frame;
+            continue;
+        }
+        b = p->u.func.function_bytecode;
+        if (!b) {
+            sf = sf->prev_frame;
+            continue;
+        }
+
+        out_frames[count].filename = b->filename;
+        out_frames[count].func_name = b->func_name;
+        out_frames[count].pc = sf->cur_pc - b->byte_code_buf;
+        out_frames[count].line = find_line_num(ctx, b, out_frames[count].pc, &out_frames[count].col);
+        count++;
+        sf = sf->prev_frame;
+    }
+    return count;
+}
 // [Debugger End]
 
 /* in order to avoid executing arbitrary code during the stack trace
