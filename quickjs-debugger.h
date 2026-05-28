@@ -26,6 +26,12 @@ int JS_GetCurrentLocation(JSContext *ctx, JSDebugLocation *out_loc);
    Returns the number of frames written, 0 if the stack is empty. */
 int JS_GetStackFrames(JSContext *ctx, JSDebugFrame *out_frames, int max_frames);
 
+typedef void (*JSDebugExceptionHandler)(JSContext *ctx, void *opaque);
+
+/* Set a callback invoked when JS_Throw is called (before unwinding).
+   The handler runs inside the VM — same constraints as the interrupt handler. */
+void JS_SetExceptionHandler(JSRuntime *rt, JSDebugExceptionHandler handler, void *opaque);
+
 #ifdef __cplusplus
 }
 #endif

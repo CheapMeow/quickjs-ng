@@ -318,6 +318,11 @@ struct JSRuntime {
     JSInterruptHandler *interrupt_handler;
     void *interrupt_opaque;
 
+    // [Debugger Begin] exception handler
+    void *debug_exception_handler;
+    void *debug_exception_opaque;
+    // [Debugger End]
+
     JSPromiseHook *promise_hook;
     void *promise_hook_opaque;
     // for smuggling the parent promise from js_promise_then
@@ -7600,6 +7605,15 @@ JSValue JS_Throw(JSContext *ctx, JSValue obj)
     JSRuntime *rt = ctx->rt;
     JS_FreeValue(ctx, rt->current_exception);
     rt->current_exception = obj;
+
+    // [Debugger Begin] exception handler
+    {
+        JSDebugExceptionHandler handler = (JSDebugExceptionHandler)rt->debug_exception_handler;
+        if (handler && !rt->in_build_stack_trace)
+            handler(ctx, rt->debug_exception_opaque);
+    }
+    // [Debugger End]
+
     return JS_EXCEPTION;
 }
 
@@ -7823,6 +7837,14 @@ int JS_GetStackFrames(JSContext *ctx, JSDebugFrame *out_frames, int max_frames)
         sf = sf->prev_frame;
     }
     return count;
+}
+// [Debugger End]
+
+// [Debugger Begin] exception handler
+void JS_SetExceptionHandler(JSRuntime *rt, JSDebugExceptionHandler handler, void *opaque)
+{
+    rt->debug_exception_handler = (void *)handler;
+    rt->debug_exception_opaque = opaque;
 }
 // [Debugger End]
 
