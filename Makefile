@@ -48,10 +48,10 @@ all: $(QJS)
 amalgam: TEMP := $(shell mktemp -d)
 amalgam: $(QJS)
 	$(QJS) amalgam.js $(TEMP)/quickjs-amalgam.c
-	cp quickjs.h quickjs-libc.h $(TEMP)
-	cd $(TEMP) && zip -9 quickjs-amalgam.zip quickjs-amalgam.c quickjs.h quickjs-libc.h
+	cp quickjs.h quickjs-libc.h quickjs-debugger.h $(TEMP)
+	cd $(TEMP) && zip -9 quickjs-amalgam.zip quickjs-amalgam.c quickjs.h quickjs-libc.h quickjs-debugger.h
 	cp $(TEMP)/quickjs-amalgam.zip $(BUILD_DIR)
-	cd $(TEMP) && $(RM) quickjs-amalgam.zip quickjs-amalgam.c quickjs.h quickjs-libc.h
+	cd $(TEMP) && $(RM) quickjs-amalgam.zip quickjs-amalgam.c quickjs.h quickjs-libc.h quickjs-debugger.h
 	$(RM) -d $(TEMP)
 
 fuzz:

@@ -48,6 +48,10 @@
 #include "libregexp.h"
 #include "dtoa.h"
 
+// [Debugger Begin] PC to line
+#include "quickjs-debugger.h"
+// [Debugger End]
+
 #if defined(EMSCRIPTEN) || defined(_MSC_VER)
 #define DIRECT_DISPATCH  0
 #else
@@ -7719,6 +7723,40 @@ fail:
     /* should never happen */
     return b->line_num;
 }
+
+// [Debugger Begin] PC to line
+int JS_GetCurrentLocation(
+    JSContext* ctx,
+    JSDebugLocation* out_loc
+)
+{
+    JSStackFrame* sf;
+    JSFunctionBytecode* b;
+    uint32_t pc;
+    int col;
+
+    sf = ctx->rt->current_stack_frame;
+
+    if (!sf)
+        return 0;
+
+    if (!JS_IsObject(sf->cur_func))
+        return 0;
+
+    b = JS_VALUE_GET_PTR(sf->cur_func);
+
+    if (!b)
+        return 0;
+
+    pc = sf->cur_pc - b->byte_code_buf;
+
+    out_loc->filename = b->filename;
+    out_loc->line = find_line_num(ctx, b, pc, &col);
+    out_loc->col = col;
+
+    return 1;
+}
+// [Debugger End]
 
 /* in order to avoid executing arbitrary code during the stack trace
    generation, we only look at simple 'name' properties containing a
