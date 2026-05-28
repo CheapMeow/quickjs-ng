@@ -7787,8 +7787,9 @@ int JS_GetCurrentLocation(
         }
 
         pc = sf->cur_pc - b->byte_code_buf;
-        
+
         out_loc->filename = b->filename;
+        out_loc->pc = pc;
         out_loc->line = find_line_num(ctx, b, pc, &col);
         out_loc->col = col;
 
@@ -7904,6 +7905,27 @@ int JS_GetFrameVariables(JSContext *ctx, int frame_index,
     }
 
     return 0;
+}
+
+// [Debugger Begin] frame depth
+int JS_GetFrameDepth(JSContext *ctx)
+{
+    JSStackFrame *sf;
+    int depth = 0;
+
+    sf = ctx->rt->current_stack_frame;
+    while (sf) {
+        if (JS_IsObject(sf->cur_func)) {
+            JSObject *p = JS_VALUE_GET_OBJ(sf->cur_func);
+            if (p->class_id == JS_CLASS_BYTECODE_FUNCTION) {
+                JSFunctionBytecode *b = p->u.func.function_bytecode;
+                if (b)
+                    depth++;
+            }
+        }
+        sf = sf->prev_frame;
+    }
+    return depth;
 }
 // [Debugger End]
 

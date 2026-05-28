@@ -10,6 +10,7 @@ typedef struct JSDebugLocation {
     JSAtom filename;
     int line;
     int col;
+    uint32_t pc;
 } JSDebugLocation;
 
 typedef struct JSDebugFrame {
@@ -41,6 +42,9 @@ typedef struct JSDebugVariable {
    Must be called while the VM is suspended. Returns count of variables filled. */
 int JS_GetFrameVariables(JSContext *ctx, int frame_index,
                          JSDebugVariable *out_vars, int max_vars);
+
+/* Count bytecode function frames on the call stack. Fast — no data extraction. */
+int JS_GetFrameDepth(JSContext *ctx);
 
 #ifdef __cplusplus
 }
