@@ -7731,30 +7731,62 @@ int JS_GetCurrentLocation(
 )
 {
     JSStackFrame* sf;
+    JSObject* p;
     JSFunctionBytecode* b;
     uint32_t pc;
     int col;
 
     sf = ctx->rt->current_stack_frame;
 
+    while (sf)
+    {
+        if (!JS_IsObject(sf->cur_func))
+        {
+            fprintf(stdout, "JS_GetCurrentLocation: cur_func tag=%d is not an object, skipping frame\n", JS_VALUE_GET_TAG(sf->cur_func));
+            sf = sf->prev_frame;
+            continue;
+        }
+
+        p = JS_VALUE_GET_OBJ(sf->cur_func);
+
+        if (p->class_id != JS_CLASS_BYTECODE_FUNCTION)
+        {
+            fprintf(stdout, "JS_GetCurrentLocation: class_id=%d is not a bytecode function, skipping frame\n", p->class_id);
+            sf = sf->prev_frame;
+            continue;
+        }
+
+        b = p->u.func.function_bytecode;
+
+        if (!b)
+        {
+            fprintf(stdout, "JS_GetCurrentLocation: function_bytecode is null, skipping frame\n");
+            sf = sf->prev_frame;
+            continue;
+        }
+
+        if (b->filename == JS_ATOM_NULL)
+        {
+            fprintf(stdout, "JS_GetCurrentLocation: filename atom is null, skipping frame\n");
+            sf = sf->prev_frame;
+            continue;
+        }
+
+        pc = sf->cur_pc - b->byte_code_buf;
+        
+        out_loc->filename = b->filename;
+        out_loc->line = find_line_num(ctx, b, pc, &col);
+        out_loc->col = col;
+
+        return 1;
+    }
+
     if (!sf)
-        return 0;
+        fprintf(stdout, "JS_GetCurrentLocation: no active stack frame\n");
 
-    if (!JS_IsObject(sf->cur_func))
-        return 0;
+    fprintf(stdout, "JS_GetCurrentLocation: no valid bytecode frame found in call stack\n");
 
-    b = JS_VALUE_GET_PTR(sf->cur_func);
-
-    if (!b)
-        return 0;
-
-    pc = sf->cur_pc - b->byte_code_buf;
-
-    out_loc->filename = b->filename;
-    out_loc->line = find_line_num(ctx, b, pc, &col);
-    out_loc->col = col;
-
-    return 1;
+    return 0;
 }
 // [Debugger End]
 
