@@ -268,6 +268,7 @@ set(qjs_sources
     libregexp.c
     libunicode.c
     quickjs.c
+    quickjs-debugger-server.c
 )
 
 if(QJS_BUILD_LIBC)
@@ -305,6 +306,10 @@ target_include_directories(qjs PUBLIC
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 target_link_libraries(qjs PUBLIC ${qjs_libs})
+if(WIN32)
+    # The debug server uses BSD-style sockets (winsock2) for its TCP transport.
+    target_link_libraries(qjs PUBLIC ws2_32)
+endif()
 
 # Pass a compiler definition so that Windows gets its declspec's right.
 get_target_property(QJS_LIB_TYPE qjs TYPE)
@@ -388,6 +393,25 @@ target_compile_definitions(qjs_exe PRIVATE ${qjs_defines})
 target_link_libraries(qjs_exe PRIVATE qjs)
 if (NOT WIN32)
     set_target_properties(qjs_exe PROPERTIES ENABLE_EXPORTS TRUE)
+endif()
+
+# QuickJS debug host
+#
+# A standalone entry point that runs a script under the DAP debug server so it
+# can be attached to by VS Code (or any DAP client) over TCP.
+
+add_executable(qjs_debug_exe
+    qjs-debug.c
+)
+add_qjs_libc_if_needed(qjs_debug_exe)
+add_static_if_needed(qjs_debug_exe)
+set_target_properties(qjs_debug_exe PROPERTIES
+    OUTPUT_NAME "qjs-debug"
+)
+target_compile_definitions(qjs_debug_exe PRIVATE ${qjs_defines})
+target_link_libraries(qjs_debug_exe PRIVATE qjs)
+if (NOT WIN32)
+    set_target_properties(qjs_debug_exe PROPERTIES ENABLE_EXPORTS TRUE)
 endif()
 
 # WASI Reactor

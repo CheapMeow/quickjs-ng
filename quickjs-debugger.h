@@ -46,6 +46,11 @@ int JS_GetFrameVariables(JSContext *ctx, int frame_index,
 /* Count bytecode function frames on the call stack. Fast — no data extraction. */
 int JS_GetFrameDepth(JSContext *ctx);
 
+/* Re-arm the per-op interrupt counter. The debug server uses this to force
+   frequent interrupt polling (counter = 1) while breakpoints / stepping are
+   active, giving line-granular pause checks. */
+void JS_DebugSetInterruptCounter(JSContext *ctx, int counter);
+
 #ifdef __cplusplus
 }
 #endif

@@ -7920,6 +7920,17 @@ int JS_GetFrameDepth(JSContext *ctx)
 }
 // [Debugger End]
 
+// [Debugger Begin] interrupt counter control
+/* Allows the debug server to re-arm the per-op interrupt counter so that
+   breakpoint / step checks run at line granularity. Called from the interrupt
+   handler (or the DAP message loop) to force frequent polling while the
+   debugger is active. */
+void JS_DebugSetInterruptCounter(JSContext *ctx, int counter)
+{
+    ctx->interrupt_counter = counter;
+}
+// [Debugger End]
+
 /* in order to avoid executing arbitrary code during the stack trace
    generation, we only look at simple 'name' properties containing a
    string. */
@@ -17770,7 +17781,7 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
 #endif
 
 #if !DIRECT_DISPATCH
-#define SWITCH(pc)      DUMP_BYTECODE_OR_DONT(pc) switch (opcode = *pc++)
+#define SWITCH(pc)      DUMP_BYTECODE_OR_DONT(pc) if (unlikely(js_poll_interrupts(ctx))) goto exception; switch (opcode = *pc++)
 #define CASE(op)        case op
 #define DEFAULT         default
 #define BREAK           break
@@ -17781,7 +17792,7 @@ static JSValue JS_CallInternal(JSContext *caller_ctx, JSValueConst func_obj,
 #include "quickjs-opcode.h"
         [ OP_COUNT ... 255 ] = &&case_default
     };
-#define SWITCH(pc)      DUMP_BYTECODE_OR_DONT(pc) __extension__ ({ goto *dispatch_table[opcode = *pc++]; });
+#define SWITCH(pc)      DUMP_BYTECODE_OR_DONT(pc) if (unlikely(js_poll_interrupts(ctx))) goto exception; __extension__ ({ goto *dispatch_table[opcode = *pc++]; });
 #define CASE(op)        case_ ## op
 #define DEFAULT         case_default
 #define BREAK           SWITCH(pc)

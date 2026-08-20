@@ -14,3 +14,6 @@ fuzz
 microbench*.txt
 
 compile_commands.json
+build-ninja/
+*.log
+tests/
