@@ -1194,14 +1194,25 @@ static bool dbg_dispatch(Debugger *dbg, JSValue req)
             int idx = FRAME_OF(ref);
             JSDebugVariable vars[DBG_MAX_VARS];
             int n = JS_GetFrameVariables(ctx, idx, vars, DBG_MAX_VARS);
+            int emitted = 0;
             for (int i = 0; i < n && pos > 0; i++) {
+                /* `let`/`const` slots that are still in their temporal dead
+                   zone hold JS_UNINITIALIZED; converting those to a string is
+                   not meaningful (and upsets the runtime), so report them as
+                   such instead. */
+                bool uninit = JS_IsUninitialized(vars[i].value);
+
                 const char *name = JS_AtomToCString(ctx, vars[i].name);
                 /* Get a printable representation of the value. */
                 char val_buf[256] = "<complex>";
-                const char *vstr = JS_ToCString(ctx, vars[i].value);
-                if (vstr) {
-                    json_escape(vstr, val_buf, sizeof(val_buf));
-                    JS_FreeCString(ctx, vstr);
+                if (uninit) {
+                    snprintf(val_buf, sizeof(val_buf), "<uninitialized>");
+                } else {
+                    const char *vstr = JS_ToCString(ctx, vars[i].value);
+                    if (vstr) {
+                        json_escape(vstr, val_buf, sizeof(val_buf));
+                        JS_FreeCString(ctx, vstr);
+                    }
                 }
 
                 char esc_name[256];
@@ -1210,13 +1221,15 @@ static bool dbg_dispatch(Debugger *dbg, JSValue req)
                 pos += snprintf(body_buf + pos, sizeof(body_buf) - (size_t)pos,
                     "%s{\"name\":\"%s\",\"value\":\"%s\",\"type\":\"%s\","
                     "\"variablesReference\":0}",
-                    i > 0 ? "," : "", esc_name, val_buf,
-                    js_val_type_tag(vars[i].value));
+                    emitted > 0 ? "," : "", esc_name, val_buf,
+                    uninit ? "undefined" : js_val_type_tag(vars[i].value));
+                emitted++;
 
                 JS_FreeCString(ctx, name);
-                /* vars[i].name is a borrowed atom from JS_GetFrameVariables;
-                   do NOT free it. vars[i].value is also borrowed. */
-                JS_FreeValue(ctx, vars[i].value);
+                /* Both vars[i].name and vars[i].value are borrowed from the
+                   live stack frame (JS_GetFrameVariables does not add a
+                   reference), so neither may be released here -- doing so
+                   underflows the refcount and corrupts the frame. */
             }
         } else if (IS_GLOBALS(ref)) {
             /* For globals, use a simple subset to avoid enumeration hang. */
@@ -1503,6 +1516,14 @@ int JS_DebugServerAttach(JSDebugServer *srv)
     if (dbg_accept(dbg) != 0)
         return -1;
     return dbg_handshake(dbg);
+}
+
+void JS_DebugServerSetRunning(JSDebugServer *srv, bool running)
+{
+    Debugger *dbg = (Debugger *)srv;
+    if (!dbg)
+        return;
+    dbg->running = running;
 }
 
 int JS_DebugServerRun(JSDebugServer *srv,

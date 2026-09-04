@@ -27,6 +27,18 @@ JSDebugServer *JS_DebugServerInit(JSRuntime *rt, JSContext *ctx,
  * Returns 0 on success, <0 on error / disconnect. */
 int JS_DebugServerAttach(JSDebugServer *srv);
 
+/* Mark the VM as "running under the debugger".
+ *
+ * Embedders that drive JS_Eval / JS_Call themselves (instead of handing a
+ * single script to JS_DebugServerRun) must call this with `true` once
+ * JS_DebugServerAttach() has returned, otherwise the interrupt handler bails
+ * out early and breakpoints / stepping / pause never trigger. Pass `false` to
+ * temporarily suspend debugging without tearing the server down.
+ *
+ * JS_DebugServerRun() manages this flag on its own; hosts using it do not need
+ * to call this function. */
+void JS_DebugServerSetRunning(JSDebugServer *srv, bool running);
+
 /* One-shot run used by the standalone qjs-debug host:
  *   1. handshake (attach),
  *   2. evaluate `code` as a script/module,
